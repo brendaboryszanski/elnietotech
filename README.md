@@ -1,6 +1,6 @@
 # El Nieto Tech 👴🏻💻
 
-**Like calling your grandkid for tech help, but without bothering them**
+**Like calling your grandkid for tech help, even when they're not around**
 
 A web application that helps elderly people solve technology problems using artificial intelligence.
 
