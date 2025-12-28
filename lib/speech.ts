@@ -1,134 +1,140 @@
 export class TextToSpeech {
-  private synthesis: SpeechSynthesis | null = null;
-  private utterance: SpeechSynthesisUtterance | null = null;
-  private isPaused = false;
-  private argentinianVoice: SpeechSynthesisVoice | null = null;
+  private audio: HTMLAudioElement | null = null;
+  private isPlaying = false;
+  private fallbackSynthesis: SpeechSynthesis | null = null;
+  private fallbackVoice: SpeechSynthesisVoice | null = null;
 
   constructor() {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      this.synthesis = window.speechSynthesis;
-      this.loadArgentinianVoice();
+    if (typeof window !== "undefined") {
+      // Setup fallback browser TTS
+      if ("speechSynthesis" in window) {
+        this.fallbackSynthesis = window.speechSynthesis;
+        this.loadFallbackVoice();
+      }
     }
   }
 
-  private loadArgentinianVoice() {
+  private loadFallbackVoice() {
     const findVoice = () => {
-      const voices = this.synthesis?.getVoices() || [];
-
-      // Priority order for Spanish voices (prefer Latin American/Argentinian)
-      const preferredVoices = [
-        "es-AR", // Argentinian Spanish
-        "es-419", // Latin American Spanish
-        "es-MX", // Mexican Spanish (closer to Latin American)
-        "es-US", // US Spanish
-      ];
-
-      for (const lang of preferredVoices) {
-        const voice = voices.find((v) => v.lang.startsWith(lang));
+      const voices = this.fallbackSynthesis?.getVoices() || [];
+      const preferredLangs = ["es-AR", "es-419", "es-MX", "es-US"];
+      
+      for (const lang of preferredLangs) {
+        const voice = voices.find((v) => v.lang === lang);
         if (voice) {
-          this.argentinianVoice = voice;
+          this.fallbackVoice = voice;
           return;
         }
       }
-
-      // Fallback: any Spanish voice that is NOT es-ES (Spain)
-      const latinVoice = voices.find(
-        (v) => v.lang.startsWith("es") && !v.lang.startsWith("es-ES")
-      );
-      if (latinVoice) {
-        this.argentinianVoice = latinVoice;
+      
+      // Fallback to any Spanish voice
+      const spanishVoice = voices.find((v) => v.lang.startsWith("es"));
+      if (spanishVoice) {
+        this.fallbackVoice = spanishVoice;
       }
     };
 
-    // Voices may load asynchronously
-    if (this.synthesis?.getVoices().length) {
+    if (this.fallbackSynthesis?.getVoices().length) {
       findVoice();
     } else {
-      this.synthesis?.addEventListener("voiceschanged", findVoice);
+      this.fallbackSynthesis?.addEventListener("voiceschanged", findVoice);
     }
   }
 
   isAvailable(): boolean {
-    return this.synthesis !== null;
+    return typeof window !== "undefined";
   }
 
-  speak(text: string, onEnd?: () => void) {
-    if (!this.synthesis) {
-      console.warn("Text-to-speech not available");
-      return;
-    }
-
-    // Cancel any previous speech
+  async speak(text: string, onEnd?: () => void) {
+    // Stop any current audio
     this.stop();
 
-    this.utterance = new SpeechSynthesisUtterance(text);
+    try {
+      // Try Google Cloud TTS first
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-    // Use Argentinian/Latin American voice if available
-    if (this.argentinianVoice) {
-      this.utterance.voice = this.argentinianVoice;
-      this.utterance.lang = this.argentinianVoice.lang;
-    } else {
-      this.utterance.lang = "es-AR";
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Convert base64 to audio
+        const audioData = `data:audio/mp3;base64,${data.audioContent}`;
+        this.audio = new Audio(audioData);
+        this.isPlaying = true;
+
+        this.audio.onended = () => {
+          this.isPlaying = false;
+          onEnd?.();
+        };
+
+        this.audio.onerror = () => {
+          console.error("Audio playback error, falling back to browser TTS");
+          this.isPlaying = false;
+          this.speakWithBrowserTTS(text, onEnd);
+        };
+
+        await this.audio.play();
+        return;
+      }
+
+      // If API fails, fallback to browser TTS
+      console.warn("Cloud TTS failed, using browser fallback");
+      this.speakWithBrowserTTS(text, onEnd);
+
+    } catch (error) {
+      console.error("TTS error:", error);
+      // Fallback to browser TTS
+      this.speakWithBrowserTTS(text, onEnd);
     }
-
-    this.utterance.rate = 0.8; // Reduced speed for elderly users
-    this.utterance.pitch = 1;
-    this.utterance.volume = 1;
-
-    if (onEnd) {
-      this.utterance.onend = onEnd;
-    }
-
-    this.synthesis.speak(this.utterance);
-    this.isPaused = false;
   }
 
-  speakSteps(problem: string, steps: string[], onEnd?: () => void) {
-    if (!this.synthesis) {
-      console.warn("Text-to-speech not available");
+  private speakWithBrowserTTS(text: string, onEnd?: () => void) {
+    if (!this.fallbackSynthesis) {
+      console.warn("No TTS available");
+      onEnd?.();
       return;
     }
 
-    // Build full text with pauses
-    let fullText = `El problema es: ${problem}. `;
-    fullText += "Ahora le voy a explicar cómo solucionarlo. ";
-
-    steps.forEach((step, index) => {
-      // Clean "Paso X:" from the beginning if exists
-      const cleanStep = step.replace(/^Paso \d+:\s*/i, "");
-      fullText += `Paso ${index + 1}. ${cleanStep}. `;
-      // Add pauses between steps
-      if (index < steps.length - 1) {
-        fullText += "... "; // Natural pauses help comprehension
-      }
-    });
-
-    this.speak(fullText, onEnd);
-  }
-
-  pause() {
-    if (this.synthesis && !this.isPaused) {
-      this.synthesis.pause();
-      this.isPaused = true;
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    if (this.fallbackVoice) {
+      utterance.voice = this.fallbackVoice;
+      utterance.lang = this.fallbackVoice.lang;
+    } else {
+      utterance.lang = "es-AR";
     }
-  }
 
-  resume() {
-    if (this.synthesis && this.isPaused) {
-      this.synthesis.resume();
-      this.isPaused = false;
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    if (onEnd) {
+      utterance.onend = onEnd;
     }
+
+    this.fallbackSynthesis.speak(utterance);
   }
 
   stop() {
-    if (this.synthesis) {
-      this.synthesis.cancel();
-      this.isPaused = false;
+    // Stop cloud audio
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+      this.audio = null;
+    }
+    this.isPlaying = false;
+
+    // Stop browser TTS
+    if (this.fallbackSynthesis) {
+      this.fallbackSynthesis.cancel();
     }
   }
 
   isSpeaking(): boolean {
-    return this.synthesis?.speaking || false;
+    return this.isPlaying || (this.fallbackSynthesis?.speaking ?? false);
   }
 }
 

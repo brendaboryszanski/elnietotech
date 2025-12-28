@@ -29,76 +29,40 @@ function IconDisplay({ iconKeys }: { iconKeys: string[] }) {
   );
 }
 
-// Tutorial overlay for first-time users
-function TutorialOverlay({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0);
-
-  const steps = [
-    {
-      emoji: "👋",
-      title: "¡Bienvenido!",
-      text: "Soy tu ayudante para resolver problemas con la tecnología.",
-    },
-    {
-      emoji: "👆",
-      title: "Elegí una opción",
-      text: "Tocá el botón del aparato que te está dando problemas.",
-    },
-    {
-      emoji: "🎤",
-      title: "Podés hablar",
-      text: "Tocá el micrófono para dictarme tu problema en vez de escribir.",
-    },
-    {
-      emoji: "🔊",
-      title: "Te leo las respuestas",
-      text: "Tocá 'Escuchar' para que te lea en voz alta.",
-    },
-  ];
-
-  const currentStep = steps[step];
-  const isLast = step === steps.length - 1;
-
+// Full screen overlay for tutorial
+function TutorialOverlay({ 
+  text, 
+  onNext, 
+  onSkip,
+  stepNumber,
+  totalSteps
+}: { 
+  text: string; 
+  onNext: () => void; 
+  onSkip: () => void;
+  stepNumber: number;
+  totalSteps: number;
+}) {
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
-        <div className="text-6xl mb-4">{currentStep.emoji}</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-3">{currentStep.title}</h2>
-        <p className="text-lg text-gray-600 mb-8 leading-relaxed">{currentStep.text}</p>
-
-        {/* Progress dots */}
-        <div className="flex justify-center gap-2 mb-6">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={`w-3 h-3 rounded-full transition-colors ${
-                i === step ? "bg-primary-500" : "bg-gray-300"
-              }`}
-            />
-          ))}
-        </div>
-
-        <button
-          onClick={() => {
-            if (isLast) {
-              onClose();
-            } else {
-              setStep(step + 1);
-            }
-          }}
-          className="w-full bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white text-xl font-bold py-4 px-8 rounded-2xl transition-colors"
-        >
-          {isLast ? "¡Empezar!" : "Siguiente →"}
-        </button>
-
-        {!isLast && (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center">
+        <div className="text-5xl mb-4">💡</div>
+        <p className="text-xl font-medium text-gray-800 mb-2">{text}</p>
+        <p className="text-sm text-gray-500 mb-5">Paso {stepNumber} de {totalSteps}</p>
+        <div className="flex flex-col gap-3">
           <button
-            onClick={onClose}
-            className="mt-4 text-gray-500 underline text-base"
+            onClick={onNext}
+            className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-xl font-bold text-lg w-full"
+          >
+            Entendido ✓
+          </button>
+          <button
+            onClick={onSkip}
+            className="text-gray-500 hover:text-gray-700 text-base underline"
           >
             Saltar tutorial
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -141,7 +105,9 @@ const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
 };
 
 // Check if this is the first visit
-const TUTORIAL_KEY = "elnietotech_tutorial_seen";
+const TUTORIAL_KEY = "elnietotech_tutorial_v2";
+
+type TutorialStep = "photo" | "speak" | "input" | "listen" | "done";
 
 export default function ConversationView({
   messages,
@@ -154,24 +120,55 @@ export default function ConversationView({
   const [isSpeaking, setIsSpeaking] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>("done");
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<ReturnType<typeof getSpeechRecognition>>(null);
 
-  // Check for first visit and show tutorial
+  // Check for first visit
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const hasSeenTutorial = localStorage.getItem(TUTORIAL_KEY);
-      if (!hasSeenTutorial) {
-        setShowTutorial(true);
+      const seen = localStorage.getItem(TUTORIAL_KEY);
+      if (!seen) {
+        setHasSeenTutorial(false);
       }
     }
   }, []);
 
-  const closeTutorial = () => {
-    setShowTutorial(false);
+  // Start tutorial when conversation begins (first message sent)
+  useEffect(() => {
+    if (messages.length === 1 && !hasSeenTutorial) {
+      // Small delay to let the UI render
+      setTimeout(() => setTutorialStep("photo"), 500);
+    }
+  }, [messages.length, hasSeenTutorial]);
+
+  // Show "listen" tutorial on first AI response
+  useEffect(() => {
+    if (messages.length === 2 && tutorialStep === "done" && !hasSeenTutorial) {
+      setTimeout(() => setTutorialStep("listen"), 500);
+    }
+  }, [messages.length, tutorialStep, hasSeenTutorial]);
+
+  const advanceTutorial = () => {
+    if (tutorialStep === "photo") {
+      setTutorialStep("speak");
+    } else if (tutorialStep === "speak") {
+      setTutorialStep("input");
+    } else if (tutorialStep === "input") {
+      setTutorialStep("done");
+    } else if (tutorialStep === "listen") {
+      setTutorialStep("done");
+      localStorage.setItem(TUTORIAL_KEY, "true");
+      setHasSeenTutorial(true);
+    }
+  };
+
+  const skipTutorial = () => {
+    setTutorialStep("done");
     localStorage.setItem(TUTORIAL_KEY, "true");
+    setHasSeenTutorial(true);
   };
 
   // Check for speech recognition support on mount
@@ -268,10 +265,35 @@ export default function ConversationView({
     }
   };
 
+  // Tutorial step messages
+  const tutorialMessages: Record<TutorialStep, string> = {
+    photo: "📷 Podés sacar una foto y mandármela para que te ayude mejor",
+    speak: "🎤 Si no querés escribir, podés hablarme apretando este botón",
+    input: "⌨️ También podés escribir tu mensaje acá y tocar Enviar",
+    listen: "🔊 Tocá 'Escuchar' para que te lea mis respuestas en voz alta",
+    done: "",
+  };
+
+  const tutorialStepNumber: Record<TutorialStep, number> = {
+    photo: 1,
+    speak: 2,
+    input: 3,
+    listen: 4,
+    done: 0,
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-orange-50 to-green-50">
-      {/* Tutorial overlay */}
-      {showTutorial && <TutorialOverlay onClose={closeTutorial} />}
+      {/* Tutorial Overlay */}
+      {tutorialStep !== "done" && (
+        <TutorialOverlay
+          text={tutorialMessages[tutorialStep]}
+          onNext={advanceTutorial}
+          onSkip={skipTutorial}
+          stepNumber={tutorialStepNumber[tutorialStep]}
+          totalSteps={4}
+        />
+      )}
 
       {/* Header */}
       <header className="flex-shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-5 shadow-lg">
@@ -299,7 +321,7 @@ export default function ConversationView({
                   <button
                     key={i}
                     onClick={() => handleQuickOption(`Tengo un problema con ${item.text === "Otro aparato" ? "otro aparato" : "el " + item.text.toLowerCase()}`)}
-                    className="w-full bg-white hover:bg-gray-50 active:bg-orange-50 border-2 border-gray-200 active:border-primary-400 rounded-2xl px-6 py-5 flex items-center gap-4 transition-all shadow-sm"
+                    className="w-full bg-orange-50 hover:bg-orange-100 active:bg-orange-200 border-2 border-orange-200 hover:border-orange-300 active:border-primary-400 rounded-2xl px-6 py-5 flex items-center gap-4 transition-all shadow-md"
                   >
                     <span className="text-4xl">{item.icon}</span>
                     <span className="text-2xl font-medium text-gray-700">{item.text}</span>
@@ -340,10 +362,10 @@ export default function ConversationView({
                 {msg.role === "assistant" && (
                   <button
                     onClick={() => handlePlayMessage(msg.content, index)}
-                    className={`mt-4 flex items-center gap-2 px-5 py-3 rounded-xl text-lg font-semibold transition-colors ${
+                    className={`mt-4 flex items-center gap-2 px-5 py-3 rounded-xl text-lg font-semibold transition-colors border-2 shadow-sm ${
                       isSpeaking === index
-                        ? "bg-primary-100 text-primary-700"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
+                        ? "bg-primary-100 text-primary-700 border-primary-300"
+                        : "bg-purple-100 text-purple-700 hover:bg-purple-200 active:bg-purple-300 border-purple-300"
                     }`}
                   >
                     {isSpeaking === index ? "⏹️ Parar" : "🔊 Escuchar"}
@@ -401,44 +423,47 @@ export default function ConversationView({
             </div>
           )}
 
-          <div className="flex gap-3">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-            />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImageSelect}
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+          />
 
-            {/* Camera button - larger */}
+          {/* Action buttons row - on top */}
+          <div className="flex gap-3 justify-center mb-3">
+            {/* Camera button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="bg-gray-100 hover:bg-gray-200 active:bg-gray-300 w-16 h-16 rounded-2xl text-3xl flex items-center justify-center transition-colors flex-shrink-0 shadow-sm"
+              className="bg-blue-100 hover:bg-blue-200 active:bg-blue-300 border-2 border-blue-300 px-6 py-3 rounded-xl text-lg flex items-center gap-2 transition-colors shadow-md"
               aria-label="Agregar foto"
             >
-              📷
+              📷 Enviar una foto
             </button>
 
-            {/* Microphone button - larger */}
+            {/* Microphone button */}
             {speechSupported && (
               <button
                 type="button"
                 onClick={toggleListening}
-                className={`w-16 h-16 rounded-2xl text-3xl flex items-center justify-center transition-colors flex-shrink-0 shadow-sm ${
+                className={`px-6 py-3 rounded-xl text-lg flex items-center gap-2 transition-colors shadow-md border-2 ${
                   isListening
-                    ? "bg-red-500 text-white animate-pulse"
-                    : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+                    ? "bg-red-500 text-white animate-pulse border-red-500"
+                    : "bg-green-100 hover:bg-green-200 active:bg-green-300 border-green-300"
                 }`}
                 aria-label={isListening ? "Parar" : "Hablar"}
               >
-                🎤
+                🎤 {isListening ? "Parar" : "Hablar"}
               </button>
             )}
+          </div>
 
-            {/* Text input - grows to fill */}
-            <form onSubmit={handleSubmit} className="flex-1 flex gap-3">
+          {/* Input row - below */}
+          <div className="relative">
+            <form onSubmit={handleSubmit} className="flex gap-2">
               <input
                 type="text"
                 value={input}
@@ -448,18 +473,18 @@ export default function ConversationView({
                 disabled={isLoading}
               />
 
-              {/* Send button - larger with icon */}
+              {/* Send button */}
               <button
                 type="submit"
                 disabled={isLoading || (!input.trim() && !imagePreview)}
-                className={`w-16 h-16 rounded-2xl text-2xl flex items-center justify-center transition-colors flex-shrink-0 shadow-sm ${
+                className={`px-6 py-4 rounded-2xl text-lg font-bold flex items-center justify-center transition-colors flex-shrink-0 shadow-sm ${
                   isLoading || (!input.trim() && !imagePreview)
                     ? "bg-gray-200 text-gray-400"
                     : "bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white"
                 }`}
                 aria-label="Enviar"
               >
-                ➤
+                Enviar
               </button>
             </form>
           </div>
