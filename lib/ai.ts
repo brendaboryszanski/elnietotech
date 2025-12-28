@@ -11,7 +11,7 @@ export async function analyzeConversation(
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -63,7 +63,7 @@ export async function analyzeConversation(
     const response = await result.response;
     const responseText = response.text();
 
-    // Try to parse JSON with multiple strategies
+    // Try npm parse JSON with multiple strategies
     const parseResponse = (text: string): AnalysisResponse | null => {
       try {
         const parsed = JSON.parse(text.trim());

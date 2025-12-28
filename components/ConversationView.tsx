@@ -2,7 +2,32 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getTextToSpeech } from "@/lib/speech";
+import { ICON_BANK } from "@/lib/iconBank";
 import type { ConversationMessage } from "@/types";
+
+// Component to render icons from the icon bank
+function IconDisplay({ iconKeys }: { iconKeys: string[] }) {
+  if (!iconKeys || iconKeys.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-3 mt-3 p-3 bg-gray-50 rounded-xl">
+      {iconKeys.map((key, i) => {
+        const iconDef = ICON_BANK[key];
+        if (!iconDef) return null;
+        const IconComponent = iconDef.icon;
+        return (
+          <div
+            key={i}
+            className="flex flex-col items-center gap-1 p-2 bg-white rounded-lg shadow-sm min-w-[70px]"
+          >
+            <IconComponent className="w-10 h-10 text-primary-600" strokeWidth={1.5} />
+            <span className="text-xs text-gray-500 text-center">{iconDef.description}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface ConversationViewProps {
   messages: ConversationMessage[];
@@ -10,6 +35,35 @@ interface ConversationViewProps {
   isLoading: boolean;
   needsImage: boolean;
 }
+
+// Speech Recognition types for browser compatibility
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+// Check if speech recognition is available
+const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
+  if (typeof window === "undefined") return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
+  return SpeechRecognition ? new SpeechRecognition() : null;
+};
 
 export default function ConversationView({
   messages,
@@ -20,8 +74,42 @@ export default function ConversationView({
   const [input, setInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isSpeaking, setIsSpeaking] = useState<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<ReturnType<typeof getSpeechRecognition>>(null);
+
+  // Check for speech recognition support on mount
+  useEffect(() => {
+    const recognition = getSpeechRecognition();
+    if (recognition) {
+      setSpeechSupported(true);
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "es-AR";
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const results = event.results;
+        let transcript = "";
+        for (let i = 0; i < results.length; i++) {
+          transcript += results[i][0].transcript;
+        }
+        setInput(transcript);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -30,6 +118,12 @@ export default function ConversationView({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && !imagePreview) return;
+
+    // Stop listening if active
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
 
     onSendMessage(input.trim(), imagePreview);
     setInput("");
@@ -65,6 +159,19 @@ export default function ConversationView({
 
   const handleQuickOption = (text: string) => {
     onSendMessage(text);
+  };
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      setInput("");
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
   };
 
   return (
@@ -129,14 +236,8 @@ export default function ConversationView({
                   />
                 )}
 
-                {msg.generatedImage && (
-                  <div className="mt-3">
-                    <img
-                      src={msg.generatedImage}
-                      alt="Imagen de referencia"
-                      className="rounded-xl max-w-full border border-gray-200"
-                    />
-                  </div>
+                {msg.icons && msg.icons.length > 0 && (
+                  <IconDisplay iconKeys={msg.icons} />
                 )}
 
                 {msg.role === "assistant" && (
@@ -180,6 +281,12 @@ export default function ConversationView({
             </div>
           )}
 
+          {isListening && (
+            <div className="mb-2 sm:mb-3 bg-red-50 border border-red-300 rounded-lg p-2 sm:p-3 text-center animate-pulse">
+              <p className="text-sm sm:text-base text-red-700">🎤 Escuchando... Hablá ahora</p>
+            </div>
+          )}
+
           {imagePreview && (
             <div className="mb-2 sm:mb-3 relative inline-block">
               <img
@@ -215,11 +322,26 @@ export default function ConversationView({
               📷
             </button>
 
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`p-3 rounded-lg text-xl sm:text-2xl transition-colors flex-shrink-0 ${
+                  isListening
+                    ? "bg-red-500 text-white animate-pulse"
+                    : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+                }`}
+                aria-label={isListening ? "Parar de escuchar" : "Hablar"}
+              >
+                🎤
+              </button>
+            )}
+
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Escribí tu mensaje..."
+              placeholder={isListening ? "Escuchando..." : "Escribí tu mensaje..."}
               className="flex-1 min-w-0 px-3 py-2 sm:px-4 sm:py-3 border-2 border-gray-200 rounded-lg text-base sm:text-lg focus:border-primary-400 focus:outline-none"
               disabled={isLoading}
             />

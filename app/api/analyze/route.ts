@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeConversation } from "@/lib/ai";
-import { generateImage } from "@/lib/imageGeneration";
-import type { AnalysisRequest, AnalysisResponse } from "@/types";
-
-interface AnalysisResponseWithGeneratedImage extends AnalysisResponse {
-  generatedImage?: string;
-}
+import type { AnalysisRequest } from "@/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,16 +31,7 @@ export async function POST(request: NextRequest) {
     // Call Gemini AI to process the conversation
     const result = await analyzeConversation(body);
 
-    // If AI wants to generate an image, do it
-    const response: AnalysisResponseWithGeneratedImage = { ...result };
-    if (result.generateImage) {
-      const generatedImage = await generateImage(result.generateImage);
-      if (generatedImage) {
-        response.generatedImage = generatedImage;
-      }
-    }
-
-    return NextResponse.json(response);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error in /api/analyze:", error);
 

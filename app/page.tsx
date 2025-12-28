@@ -96,7 +96,7 @@ export default function Home() {
       const aiMessage: ConversationMessage = {
         role: "assistant",
         content: result.reply,
-        generatedImage: result.generatedImage,
+        icons: result.icons,
         timestamp: Date.now(),
       };
 
