@@ -47,19 +47,19 @@ function TooltipWithArrow({
   onSkip: () => void;
 }) {
   return (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-64">
-      <div className="bg-primary-600 text-white px-4 py-3 rounded-xl shadow-2xl relative">
+    <div className="absolute bottom-full left-0 right-0 mb-2 z-50 px-4">
+      <div className="bg-primary-600 text-white px-5 py-4 rounded-xl shadow-2xl relative mx-auto max-w-xs">
         <p className="text-base font-medium text-center mb-3">{text}</p>
-        <div className="flex gap-2 justify-center items-center">
+        <div className="flex gap-3 justify-center items-center">
           <button 
             onClick={onSkip} 
-            className="text-sm text-white/80 hover:text-white underline"
+            className="text-sm text-white/80 hover:text-white underline px-2 py-1"
           >
             Saltar
           </button>
           <button 
             onClick={onNext} 
-            className="bg-white text-primary-600 px-4 py-2 rounded-lg font-bold text-base"
+            className="bg-white text-primary-600 px-5 py-2 rounded-lg font-bold text-base"
           >
             OK ✓
           </button>
