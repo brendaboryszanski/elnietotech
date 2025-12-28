@@ -49,12 +49,23 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in /api/analyze:", error);
 
-    const errorString = error instanceof Error ? error.message : String(error);
+    // Build error string from all possible sources
+    const errorMessage = error instanceof Error ? error.message : "";
+    const errorStatus = (error as { status?: number })?.status;
+    const errorString = JSON.stringify(error) + " " + errorMessage;
 
     // Check for rate limit error (429)
-    if (errorString.includes("429") || errorString.includes("Too Many Requests") || errorString.includes("quota")) {
+    const isRateLimitError =
+      errorStatus === 429 ||
+      errorMessage.includes("429") ||
+      errorMessage.includes("Too Many Requests") ||
+      errorMessage.includes("quota") ||
+      errorMessage.includes("RESOURCE_EXHAUSTED") ||
+      errorString.includes("rate");
+
+    if (isRateLimitError) {
       // Try to extract retry time from error message
-      const retryMatch = errorString.match(/retry in (\d+\.?\d*)/i);
+      const retryMatch = errorMessage.match(/retry in (\d+\.?\d*)/i);
       const retrySeconds = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : 60;
 
       return NextResponse.json({

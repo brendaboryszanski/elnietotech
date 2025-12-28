@@ -128,8 +128,7 @@ export async function analyzeConversation(
     };
   } catch (error) {
     console.error("Error calling Gemini API:", error);
-    throw new Error(
-      "No se pudo procesar tu mensaje. Por favor, intenta de nuevo."
-    );
+    // Re-throw the original error so route.ts can detect rate limits
+    throw error;
   }
 }
