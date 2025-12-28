@@ -100,12 +100,12 @@ const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
 };
 
 // Check if this is the first visit
-const TUTORIAL_KEY = "elnietotech_tutorial_v4";
+const TUTORIAL_KEY = "elnietotech_tutorial_v5";
 
-type TutorialStep = "welcome" | "photo" | "speak" | "input" | "listen" | "done";
+type TutorialStep = "welcome" | "howItWorks" | "photo" | "speak" | "input" | "listen" | "done";
 
 // Welcome overlay for first-time users
-function WelcomeOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+function WelcomeOverlay({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center">
@@ -113,6 +113,35 @@ function WelcomeOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () =
         <h2 className="text-2xl font-bold text-gray-800 mb-4">¡Hola!</h2>
         <p className="text-lg text-gray-600 mb-6 leading-relaxed">
           Sé que la tecnología a veces es difícil. Acá me mandó alguien que te quiere para ayudarte cuando no puede.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onNext}
+            className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-4 rounded-xl font-bold text-xl w-full shadow-lg"
+          >
+            Seguir →
+          </button>
+          <button
+            onClick={onSkip}
+            className="text-gray-500 hover:text-gray-700 text-base underline py-2"
+          >
+            Ya sé cómo funciona
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// How it works overlay
+function HowItWorksOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center">
+        <div className="text-5xl mb-4">💬</div>
+        <h2 className="text-xl font-bold text-gray-800 mb-4">¿Cómo funciona?</h2>
+        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+          Vamos a entender juntos qué problema estás teniendo. Te voy a ir haciendo preguntas y guiándote paso a paso hasta encontrar una solución.
         </p>
         <div className="flex flex-col gap-3">
           <button
@@ -125,7 +154,7 @@ function WelcomeOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () =
             onClick={onSkip}
             className="text-gray-500 hover:text-gray-700 text-base underline py-2"
           >
-            Ya sé cómo funciona
+            Saltar intro
           </button>
         </div>
       </div>
@@ -199,8 +228,12 @@ export default function ConversationView({
     setHasSeenTutorial(true);
   };
 
-  const startFromWelcome = () => {
-    // Just dismiss welcome, tutorial will continue after first message
+  const goToHowItWorks = () => {
+    setTutorialStep("howItWorks");
+  };
+
+  const startFromHowItWorks = () => {
+    // Dismiss intro, tutorial will continue after first message
     setTutorialStep("done");
   };
 
@@ -302,11 +335,16 @@ export default function ConversationView({
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-orange-50 to-green-50">
       {/* Welcome overlay for first-time users */}
       {tutorialStep === "welcome" && (
-        <WelcomeOverlay onStart={startFromWelcome} onSkip={skipTutorial} />
+        <WelcomeOverlay onNext={goToHowItWorks} onSkip={skipTutorial} />
       )}
 
-      {/* Dark overlay during tutorial */}
-      {tutorialStep !== "done" && tutorialStep !== "welcome" && <TutorialOverlay />}
+      {/* How it works overlay */}
+      {tutorialStep === "howItWorks" && (
+        <HowItWorksOverlay onStart={startFromHowItWorks} onSkip={skipTutorial} />
+      )}
+
+      {/* Dark overlay during tutorial (only for tooltip steps) */}
+      {tutorialStep !== "done" && tutorialStep !== "welcome" && tutorialStep !== "howItWorks" && <TutorialOverlay />}
 
       {/* Header */}
       <header className="flex-shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-4 shadow-lg">
