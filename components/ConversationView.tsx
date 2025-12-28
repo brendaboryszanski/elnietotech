@@ -38,16 +38,30 @@ function TutorialOverlay() {
 function TutorialTooltip({ 
   text,
   onNext, 
-  onSkip
+  onSkip,
+  position = "center"
 }: { 
   text: string;
   onNext: () => void; 
   onSkip: () => void;
+  position?: "left" | "center" | "right";
 }) {
+  const positionClasses = {
+    left: "left-0",
+    center: "left-1/2 -translate-x-1/2",
+    right: "right-0"
+  };
+  
+  const arrowClasses = {
+    left: "left-6",
+    center: "left-1/2 -translate-x-1/2",
+    right: "right-6"
+  };
+
   return (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 whitespace-nowrap">
-      <div className="bg-primary-600 text-white px-4 py-3 rounded-xl shadow-2xl relative">
-        <p className="text-base font-medium text-center mb-2">{text}</p>
+    <div className={`absolute bottom-full ${positionClasses[position]} mb-4 z-50`}>
+      <div className="bg-primary-600 text-white px-5 py-4 rounded-xl shadow-2xl relative">
+        <p className="text-base font-medium text-center mb-3 whitespace-nowrap">{text}</p>
         <div className="flex gap-3 justify-center">
           <button onClick={onSkip} className="text-sm text-white/80 hover:text-white underline">
             Saltar
@@ -57,7 +71,7 @@ function TutorialTooltip({
           </button>
         </div>
         {/* Arrow pointing down */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-primary-600" />
+        <div className={`absolute ${arrowClasses[position]} top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-primary-600`} />
       </div>
     </div>
   );
@@ -511,6 +525,7 @@ export default function ConversationView({
                   text="📷 Tocá para sacar una foto"
                   onNext={advanceTutorial}
                   onSkip={skipTutorial}
+                  position="left"
                 />
               )}
             </div>
@@ -533,6 +548,7 @@ export default function ConversationView({
                     text="🎤 Tocá para hablar"
                     onNext={advanceTutorial}
                     onSkip={skipTutorial}
+                    position="right"
                   />
                 )}
               </div>
