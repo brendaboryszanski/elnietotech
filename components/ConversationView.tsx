@@ -29,43 +29,35 @@ function IconDisplay({ iconKeys }: { iconKeys: string[] }) {
   );
 }
 
-// Dark overlay that dims everything except the highlighted element
+// Dark overlay for tutorial
 function TutorialOverlay() {
-  return (
-    <div className="fixed inset-0 bg-black/60 z-40 pointer-events-none" />
-  );
+  return <div className="fixed inset-0 bg-black/60 z-40" />;
 }
 
-// Tooltip with arrow pointing to element
-function TooltipWithArrow({ 
-  text, 
+// Tooltip with arrow - positioned above its container
+function TutorialTooltip({ 
+  text,
   onNext, 
   onSkip
 }: { 
-  text: string; 
+  text: string;
   onNext: () => void; 
   onSkip: () => void;
 }) {
   return (
-    <div className="absolute bottom-full left-0 right-0 mb-2 z-50 px-4">
-      <div className="bg-primary-600 text-white px-5 py-4 rounded-xl shadow-2xl relative mx-auto max-w-xs">
-        <p className="text-base font-medium text-center mb-3">{text}</p>
-        <div className="flex gap-3 justify-center items-center">
-          <button 
-            onClick={onSkip} 
-            className="text-sm text-white/80 hover:text-white underline px-2 py-1"
-          >
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 whitespace-nowrap">
+      <div className="bg-primary-600 text-white px-4 py-3 rounded-xl shadow-2xl relative">
+        <p className="text-base font-medium text-center mb-2">{text}</p>
+        <div className="flex gap-3 justify-center">
+          <button onClick={onSkip} className="text-sm text-white/80 hover:text-white underline">
             Saltar
           </button>
-          <button 
-            onClick={onNext} 
-            className="bg-white text-primary-600 px-5 py-2 rounded-lg font-bold text-base"
-          >
+          <button onClick={onNext} className="bg-white text-primary-600 px-4 py-2 rounded-lg font-bold text-sm">
             OK ✓
           </button>
         </div>
         {/* Arrow pointing down */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-primary-600" />
+        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-primary-600" />
       </div>
     </div>
   );
@@ -305,7 +297,6 @@ export default function ConversationView({
     }
   };
 
-  const isTutorialActive = tutorialStep !== "done" && tutorialStep !== "welcome";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-orange-50 to-green-50">
@@ -314,8 +305,8 @@ export default function ConversationView({
         <WelcomeOverlay onStart={startFromWelcome} onSkip={skipTutorial} />
       )}
 
-      {/* Dark overlay during tutorial (not for welcome) */}
-      {isTutorialActive && <TutorialOverlay />}
+      {/* Dark overlay during tutorial */}
+      {tutorialStep !== "done" && tutorialStep !== "welcome" && <TutorialOverlay />}
 
       {/* Header */}
       <header className="flex-shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-4 shadow-lg">
@@ -382,7 +373,7 @@ export default function ConversationView({
                 )}
 
                 {msg.role === "assistant" && (
-                  <div className={`relative mt-3 inline-block ${tutorialStep === "listen" && index === 1 ? "z-50" : ""}`}>
+                  <div className={`mt-3 relative inline-block ${tutorialStep === "listen" && index === 1 ? "z-50" : ""}`}>
                     <button
                       onClick={() => handlePlayMessage(msg.content, index)}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold transition-colors border-2 ${
@@ -394,8 +385,8 @@ export default function ConversationView({
                       {isSpeaking === index ? "⏹️ Parar" : "🔊 Escuchar"}
                     </button>
                     {tutorialStep === "listen" && index === 1 && (
-                      <TooltipWithArrow
-                        text="Tocá para escuchar en voz alta"
+                      <TutorialTooltip
+                        text="🔊 Tocá para escuchar"
                         onNext={advanceTutorial}
                         onSkip={skipTutorial}
                       />
@@ -461,7 +452,7 @@ export default function ConversationView({
 
           {/* Row 1: Photo and Mic buttons */}
           <div className="flex gap-2 mb-2 relative">
-            <div className={`relative flex-1 ${tutorialStep === "photo" ? "z-50" : ""}`}>
+            <div className={`flex-1 relative ${tutorialStep === "photo" ? "z-50" : ""}`}>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -470,8 +461,8 @@ export default function ConversationView({
                 📷 Foto
               </button>
               {tutorialStep === "photo" && (
-                <TooltipWithArrow
-                  text="Tocá acá para sacar una foto"
+                <TutorialTooltip
+                  text="📷 Tocá para sacar una foto"
                   onNext={advanceTutorial}
                   onSkip={skipTutorial}
                 />
@@ -479,7 +470,7 @@ export default function ConversationView({
             </div>
 
             {speechSupported && (
-              <div className={`relative flex-1 ${tutorialStep === "speak" ? "z-50" : ""}`}>
+              <div className={`flex-1 relative ${tutorialStep === "speak" ? "z-50" : ""}`}>
                 <button
                   type="button"
                   onClick={toggleListening}
@@ -492,8 +483,8 @@ export default function ConversationView({
                   🎤 {isListening ? "Parar" : "Hablar"}
                 </button>
                 {tutorialStep === "speak" && (
-                  <TooltipWithArrow
-                    text="Tocá acá para hablar"
+                  <TutorialTooltip
+                    text="🎤 Tocá para hablar"
                     onNext={advanceTutorial}
                     onSkip={skipTutorial}
                   />
@@ -526,8 +517,8 @@ export default function ConversationView({
               </button>
             </form>
             {tutorialStep === "input" && (
-              <TooltipWithArrow
-                text="O escribí tu mensaje acá"
+              <TutorialTooltip
+                text="⌨️ O escribí acá"
                 onNext={advanceTutorial}
                 onSkip={skipTutorial}
               />
