@@ -113,9 +113,6 @@ const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
   return SpeechRecognition ? new SpeechRecognition() : null;
 };
 
-// Check if this is the first visit
-const TUTORIAL_KEY = "elnietotech_tutorial_v5";
-
 type TutorialStep = "welcome" | "howItWorks" | "photo" | "speak" | "input" | "listen" | "done";
 
 // Welcome overlay for first-time users
@@ -195,22 +192,12 @@ export default function ConversationView({
   const [isSpeaking, setIsSpeaking] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState<TutorialStep>("done");
-  const [hasSeenTutorial, setHasSeenTutorial] = useState(true);
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome");
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<ReturnType<typeof getSpeechRecognition>>(null);
 
-  // Check for first visit and show welcome
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const seen = localStorage.getItem(TUTORIAL_KEY);
-      if (!seen) {
-        setHasSeenTutorial(false);
-        setTutorialStep("welcome");
-      }
-    }
-  }, []);
 
   // Start input tutorial when conversation begins (first message sent)
   useEffect(() => {
@@ -239,14 +226,12 @@ export default function ConversationView({
       setTutorialStep("done");
     } else if (tutorialStep === "listen") {
       setTutorialStep("done");
-      localStorage.setItem(TUTORIAL_KEY, "true");
       setHasSeenTutorial(true);
     }
   };
 
   const skipTutorial = () => {
     setTutorialStep("done");
-    localStorage.setItem(TUTORIAL_KEY, "true");
     setHasSeenTutorial(true);
   };
 
