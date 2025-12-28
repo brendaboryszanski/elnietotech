@@ -29,6 +29,13 @@ function IconDisplay({ iconKeys }: { iconKeys: string[] }) {
   );
 }
 
+// Dark overlay that dims everything except the highlighted element
+function TutorialOverlay() {
+  return (
+    <div className="fixed inset-0 bg-black/60 z-40 pointer-events-none" />
+  );
+}
+
 // Tooltip with arrow pointing to element
 function TooltipWithArrow({ 
   text, 
@@ -44,28 +51,34 @@ function TooltipWithArrow({
   arrowDirection: "left" | "center" | "right";
 }) {
   const arrowPositionClass = {
-    left: "left-6",
+    left: "left-8",
     center: "left-1/2 -translate-x-1/2",
-    right: "right-6"
+    right: "right-8"
   }[arrowDirection];
 
   return (
-    <div className={`absolute ${position === "top" ? "bottom-full mb-2" : "top-full mt-2"} left-0 right-0 z-50 px-2`}>
-      <div className="bg-primary-600 text-white px-4 py-3 rounded-xl shadow-xl relative max-w-xs mx-auto">
-        <p className="text-base font-medium text-center mb-2">{text}</p>
-        <div className="flex gap-3 justify-center">
-          <button onClick={onSkip} className="text-sm opacity-80 hover:opacity-100">
-            Saltar
+    <div className={`absolute ${position === "top" ? "bottom-full mb-3" : "top-full mt-3"} left-0 right-0 z-50 px-2`}>
+      <div className="bg-primary-600 text-white px-5 py-4 rounded-2xl shadow-2xl relative max-w-sm mx-auto">
+        <p className="text-lg font-medium text-center mb-4">{text}</p>
+        <div className="flex gap-3 justify-center items-center">
+          <button 
+            onClick={onSkip} 
+            className="text-base text-white/80 hover:text-white underline px-3 py-2"
+          >
+            Saltar intro
           </button>
-          <button onClick={onNext} className="bg-white text-primary-600 px-3 py-1 rounded-lg font-bold text-sm">
-            OK ✓
+          <button 
+            onClick={onNext} 
+            className="bg-white text-primary-600 px-6 py-3 rounded-xl font-bold text-lg shadow-lg"
+          >
+            Entendido ✓
           </button>
         </div>
         {/* Arrow */}
         <div className={`absolute ${arrowPositionClass} ${
           position === "top" 
-            ? "top-full border-t-primary-600 border-t-8 border-x-8 border-x-transparent" 
-            : "bottom-full border-b-primary-600 border-b-8 border-x-8 border-x-transparent"
+            ? "top-full border-t-primary-600 border-t-[12px] border-x-[12px] border-x-transparent" 
+            : "bottom-full border-b-primary-600 border-b-[12px] border-x-[12px] border-x-transparent"
         } w-0 h-0`} />
       </div>
     </div>
@@ -109,9 +122,38 @@ const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
 };
 
 // Check if this is the first visit
-const TUTORIAL_KEY = "elnietotech_tutorial_v3";
+const TUTORIAL_KEY = "elnietotech_tutorial_v4";
 
-type TutorialStep = "photo" | "speak" | "input" | "listen" | "done";
+type TutorialStep = "welcome" | "photo" | "speak" | "input" | "listen" | "done";
+
+// Welcome overlay for first-time users
+function WelcomeOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center">
+        <div className="text-6xl mb-4">🤗</div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">¡Hola!</h2>
+        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+          Sé que la tecnología a veces es difícil. Acá me mandó alguien que te quiere para ayudarte cuando no puede.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onStart}
+            className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-4 rounded-xl font-bold text-xl w-full shadow-lg"
+          >
+            ¡Empezar! 👍
+          </button>
+          <button
+            onClick={onSkip}
+            className="text-gray-500 hover:text-gray-700 text-base underline py-2"
+          >
+            Ya sé cómo funciona
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ConversationView({
   messages,
@@ -130,22 +172,24 @@ export default function ConversationView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<ReturnType<typeof getSpeechRecognition>>(null);
 
-  // Check for first visit
+  // Check for first visit and show welcome
   useEffect(() => {
     if (typeof window !== "undefined") {
       const seen = localStorage.getItem(TUTORIAL_KEY);
       if (!seen) {
         setHasSeenTutorial(false);
+        setTutorialStep("welcome");
       }
     }
   }, []);
 
-  // Start tutorial when conversation begins (first message sent)
+  // Start input tutorial when conversation begins (first message sent)
   useEffect(() => {
-    if (messages.length === 1 && !hasSeenTutorial) {
+    if (messages.length === 1 && !hasSeenTutorial && tutorialStep === "done") {
+      // User dismissed welcome but hasn't seen full tutorial - show input buttons tutorial
       setTimeout(() => setTutorialStep("photo"), 300);
     }
-  }, [messages.length, hasSeenTutorial]);
+  }, [messages.length, hasSeenTutorial, tutorialStep]);
 
   // Show "listen" tutorial on first AI response
   useEffect(() => {
@@ -155,7 +199,10 @@ export default function ConversationView({
   }, [messages.length, tutorialStep, hasSeenTutorial]);
 
   const advanceTutorial = () => {
-    if (tutorialStep === "photo") {
+    if (tutorialStep === "welcome") {
+      // After welcome, wait for user to select a device
+      setTutorialStep("done");
+    } else if (tutorialStep === "photo") {
       setTutorialStep("speak");
     } else if (tutorialStep === "speak") {
       setTutorialStep("input");
@@ -172,6 +219,11 @@ export default function ConversationView({
     setTutorialStep("done");
     localStorage.setItem(TUTORIAL_KEY, "true");
     setHasSeenTutorial(true);
+  };
+
+  const startFromWelcome = () => {
+    // Just dismiss welcome, tutorial will continue after first message
+    setTutorialStep("done");
   };
 
   // Check for speech recognition support on mount
@@ -267,8 +319,18 @@ export default function ConversationView({
     }
   };
 
+  const isTutorialActive = tutorialStep !== "done" && tutorialStep !== "welcome";
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-orange-50 to-green-50">
+      {/* Welcome overlay for first-time users */}
+      {tutorialStep === "welcome" && (
+        <WelcomeOverlay onStart={startFromWelcome} onSkip={skipTutorial} />
+      )}
+
+      {/* Dark overlay during tutorial (not for welcome) */}
+      {isTutorialActive && <TutorialOverlay />}
+
       {/* Header */}
       <header className="flex-shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-4 shadow-lg">
         <h1 className="text-2xl font-bold text-center">
@@ -334,7 +396,7 @@ export default function ConversationView({
                 )}
 
                 {msg.role === "assistant" && (
-                  <div className="relative mt-3 inline-block">
+                  <div className={`relative mt-3 inline-block ${tutorialStep === "listen" && index === 1 ? "z-50" : ""}`}>
                     <button
                       onClick={() => handlePlayMessage(msg.content, index)}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold transition-colors border-2 ${
@@ -415,7 +477,7 @@ export default function ConversationView({
 
           {/* Row 1: Photo and Mic buttons */}
           <div className="flex gap-2 mb-2 relative">
-            <div className="relative flex-1">
+            <div className={`relative flex-1 ${tutorialStep === "photo" ? "z-50" : ""}`}>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -435,7 +497,7 @@ export default function ConversationView({
             </div>
 
             {speechSupported && (
-              <div className="relative flex-1">
+              <div className={`relative flex-1 ${tutorialStep === "speak" ? "z-50" : ""}`}>
                 <button
                   type="button"
                   onClick={toggleListening}
@@ -461,14 +523,14 @@ export default function ConversationView({
           </div>
 
           {/* Row 2: Text input and send */}
-          <div className="relative">
+          <div className={`relative ${tutorialStep === "input" ? "z-50" : ""}`}>
             <form onSubmit={handleSubmit} className="flex gap-2">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={isListening ? "Escuchando..." : "Escribí acá..."}
-                className="flex-1 min-w-0 px-4 py-3 border-2 border-gray-300 rounded-xl text-lg focus:border-primary-500 focus:outline-none"
+                className="flex-1 min-w-0 px-4 py-3 border-2 border-gray-300 rounded-xl text-lg focus:border-primary-500 focus:outline-none bg-white"
                 disabled={isLoading}
               />
               <button
