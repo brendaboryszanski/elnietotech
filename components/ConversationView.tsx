@@ -137,12 +137,20 @@ function WelcomeOverlay({ onNext, onSkip }: { onNext: () => void; onSkip: () => 
 function HowItWorksOverlay({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center">
-        <div className="text-5xl mb-4">💬</div>
-        <h2 className="text-xl font-bold text-gray-800 mb-4">¿Cómo funciona?</h2>
-        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center">
+        <h2 className="text-xl font-bold text-gray-800 mb-3">¿Cómo funciona?</h2>
+        <p className="text-base text-gray-600 mb-4 leading-relaxed">
           Vamos a entender juntos qué problema estás teniendo. Te voy a ir haciendo preguntas y guiándote paso a paso hasta encontrar una solución.
         </p>
+        <div className="relative w-full aspect-[9/16] max-h-[40vh] mb-4 rounded-xl overflow-hidden bg-black">
+          <iframe
+            src="https://www.youtube.com/embed/wth1IFUl6iU"
+            title="Cómo funciona El Nieto Tech"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 w-full h-full"
+          />
+        </div>
         <div className="flex flex-col gap-3">
           <button
             onClick={onStart}
